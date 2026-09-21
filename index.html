@@ -2,34 +2,29 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OpenFront</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-  iframe { position: fixed; top: 0; left: 0; width: 100%; height: 100%; border: 0; display: block; }
+  html, body { margin: 0; height: 100%; background: #000; color: #888; font: 14px system-ui, sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; text-align: center; cursor: pointer; }
+  p { margin: 0; padding: 1rem; max-width: 32rem; }
 </style>
 </head>
 <body>
-<iframe id="game" title="OpenFront"
-        allow="fullscreen; autoplay; clipboard-read; clipboard-write; gamepad"
-        allowfullscreen></iframe>
+<p id="msg"></p>
 
 <script>
 (function () {
-  // Where the game is loaded from. Only change this if you put a same-origin
-  // proxy in front of openfront.io (see the note on syncing further down).
   var GAME_ORIGIN = 'https://openfront.io';
+  var TAB_TITLE = 'OpenFront';   // what the about:blank tab is called
+  var msg = document.getElementById('msg');
 
-  var frame = document.getElementById('game');
-  var current = '';
-
-  // Turn this page's #hash into the URL to load in the frame.
+  // Turn this page's #hash into the URL to load in the game frame.
   //   #/w5/game/AbCdEfGh?live            -> https://openfront.io/w5/game/AbCdEfGh?live
   //   #https://openfront.io/w5/game/Ab   -> same thing (a pasted full link)
   //   #join=AbCdEfGh                     -> https://openfront.io/#join=AbCdEfGh
   //   (no hash)                          -> https://openfront.io/
-  // Anything that is not OpenFront falls back to the home page, so this
-  // page can never be used to load some other site.
+  // Anything that is not OpenFront falls back to the home page.
   function hashToGameUrl(hash) {
     var h = hash.replace(/^#/, '');
     if (!h) return GAME_ORIGIN + '/';
@@ -49,42 +44,37 @@
     return GAME_ORIGIN + '/#' + h;
   }
 
-  function load(url) {
-    if (url === current) return;
-    current = url;
-    frame.src = url;
+  // Open a blank tab and put the fullscreen game frame inside it.
+  function launch() {
+    var win = window.open('about:blank', '_blank');
+    if (!win) {
+      msg.textContent = 'Click anywhere to open the game in a new about:blank tab. ' +
+                        'If nothing happens, allow pop-ups for this site.';
+      return;
+    }
+
+    var doc = win.document;
+    doc.title = TAB_TITLE;
+
+    var style = doc.createElement('style');
+    style.textContent =
+      'html,body{margin:0;height:100%;background:#000;overflow:hidden}' +
+      'iframe{position:fixed;top:0;left:0;width:100%;height:100%;border:0;display:block}';
+    doc.head.appendChild(style);
+
+    var frame = doc.createElement('iframe');
+    frame.title = 'OpenFront';
+    frame.setAttribute('allow', 'fullscreen; autoplay; clipboard-read; clipboard-write; gamepad');
+    frame.setAttribute('allowfullscreen', '');
+    frame.src = hashToGameUrl(location.hash);
+    doc.body.appendChild(frame);
+    frame.addEventListener('load', function () { frame.focus(); });
+
+    msg.textContent = 'Opened in a new about:blank tab. Click anywhere to open it again.';
   }
 
-  // Link -> game: opening this page with a #hash, or editing the hash in the
-  // address bar, loads that game.
-  function fromHash() { load(hashToGameUrl(location.hash)); }
-  window.addEventListener('hashchange', fromHash);
-  fromHash();
-
-  // Game -> link: copy the frame's current path into this page's #hash.
-  // Browsers only let a page read a frame's URL when both are the same origin.
-  // With openfront.io in the frame that is never true, so this stays quiet
-  // and the address bar will not change while you play. It starts working if
-  // GAME_ORIGIN points at a proxy served from the same origin as this page.
-  setInterval(function () {
-    var loc;
-    try {
-      loc = frame.contentWindow.location;
-      if (!loc.href || loc.href === 'about:blank') return;
-    } catch (e) {
-      return; // cross-origin: not readable
-    }
-    var path = loc.pathname + loc.search + loc.hash;
-    var hash = path === '/' ? '' : '#' + path;
-    if (hash !== location.hash) {
-      current = GAME_ORIGIN + path;
-      history.replaceState(null, '', location.pathname + location.search + hash);
-    }
-  }, 500);
-
-  // Keep keyboard input going straight to the game.
-  frame.addEventListener('load', function () { frame.focus(); });
-  window.addEventListener('focus', function () { frame.focus(); });
+  document.addEventListener('click', launch);
+  launch();
 })();
 </script>
 </body>
